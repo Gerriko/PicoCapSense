@@ -9,5 +9,5 @@ This library is based on the measuring methods used in the Capacitive Sensing Li
 You can view this library here https://github.com/PaulStoffregen/CapacitiveSensor
 
 
-
+![Fritzing Breadboard Image](Pico_Capacitive_Sensor.jpg)
 
