@@ -6,13 +6,15 @@
 # Datatypes (KEYWORD1)
 #######################################
 
-PicoCapSense	KEYWORD1
+PicoPIO KEYWORD1
+PicoCapSensing KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
 #######################################
 
-getCapSenseSample	KEYWORD2
+checkForError KEYWORD2
+getCapSensingSample	KEYWORD2
 
 
 #######################################
@@ -24,3 +26,4 @@ getCapSenseSample	KEYWORD2
 # Constants (LITERAL1)
 #######################################
 F_CPU LITERAL1
+MAXNUMBERSAMPLES LITERAL1

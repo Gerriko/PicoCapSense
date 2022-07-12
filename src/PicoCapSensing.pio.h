@@ -9,13 +9,13 @@
 #endif
 
 // -------- //
-// capsense //
+// capsensing //
 // -------- //
 
-#define capsense_wrap_target 0
-#define capsense_wrap 29
+#define capsensing_wrap_target 0
+#define capsensing_wrap 29
 
-static const uint16_t capsense_program_instructions[] = {
+static const uint16_t capsensing_program_instructions[] = {
             //     .wrap_target
     0x80a0, //  0: pull   block
     0xf080, //  1: set    pindirs, 0      side 0
@@ -51,30 +51,35 @@ static const uint16_t capsense_program_instructions[] = {
 };
 
 #if !PICO_NO_HARDWARE
-static const struct pio_program capsense_program = {
-    .instructions = capsense_program_instructions,
+static const struct pio_program capsensing_program = {
+    .instructions = capsensing_program_instructions,
     .length = 30,
     .origin = -1,
 };
 
-static inline pio_sm_config capsense_program_get_default_config(uint offset) {
+static inline pio_sm_config capsensing_program_get_default_config(uint offset) {
     pio_sm_config c = pio_get_default_sm_config();
-    sm_config_set_wrap(&c, offset + capsense_wrap_target, offset + capsense_wrap);
+    sm_config_set_wrap(&c, offset + capsensing_wrap_target, offset + capsensing_wrap);
     sm_config_set_sideset(&c, 2, true, false);
     return c;
 }
 
 // this is a raw helper function for use by the user which sets up the GPIO output, and configures the SM to output on a particular pin
-static inline void capsense_program_init(PIO pio, uint sm, uint offset, uint trig_pin, uint read_pin) {
-  uint32_t pins_assigned = (1u << trig_pin) | (1u << read_pin);
-  uint32_t pins_setstate = (0u << trig_pin) | (0u << read_pin);         // default set both pins low
-  uint32_t pins_setdirection = (1u << trig_pin) | (0u << read_pin);     // default set trig_pin as output and read_pin as input
+static inline void capsensing_program_init(PIO pio, uint sm, uint offset, uint trig_pin, uint read_pin) {
   gpio_set_pulls(read_pin, false, false);         // make sure internal pull-up / pull-down not enabled
-  pio_sm_set_pins_with_mask(pio, sm, pins_setstate, pins_assigned);
-  pio_sm_set_pindirs_with_mask(pio, sm, pins_setdirection, pins_assigned);
+
+  // Ensure that the state machine is not running before config
+  pio_sm_set_enabled(pio, sm, false);
+  // Clear all fifos
+  pio_sm_clear_fifos(pio, sm);
+  pio_sm_restart(pio, sm);
+
   pio_gpio_init(pio, trig_pin);
   pio_gpio_init(pio, read_pin);
-  pio_sm_config c = capsense_program_get_default_config(offset);
+
+  pio_sm_set_consecutive_pindirs (pio, sm, trig_pin, 1, true);
+
+  pio_sm_config c = capsensing_program_get_default_config(offset);
   // use in config for the read pin to allow direction and state to change
   sm_config_set_in_pins(&c, read_pin);
   // set the 'jmp' pin as the same as in pin as will be used to check pin state (if true checks)
@@ -85,8 +90,7 @@ static inline void capsense_program_init(PIO pio, uint sm, uint offset, uint tri
   sm_config_set_sideset_pins(&c, trig_pin);
   // Load our configuration, and jump to the start of the program
   pio_sm_init(pio, sm, offset, &c);
-  // Set the state machine running
-  pio_sm_set_enabled(pio, sm, true);
+
 }
 
 #endif

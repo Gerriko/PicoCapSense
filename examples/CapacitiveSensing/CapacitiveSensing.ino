@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2022 C Gerrish (BigG/Gerrikoio/Gerriko)
+ Copyright (c) 2022 C Gerrish (https://github.com/Gerriko)
  This example takes a rolling average to smooth out capacitance sampled values.
 
  It uses a capacitive Sensing library for RP2040 based boards (using the PIO processor).
@@ -31,14 +31,15 @@
  DEALINGS IN THE SOFTWARE.
  */
 
- #include "PicoCapSense.h"
+ #include "PicoCapSensing.h"
 
 // define the pin numbers:
 static const int TRIGPIN =  13;
 static const int RECPIN =  12;
-static const int LEDPIN = 20;
+static const int LEDPIN = 8;
 
 static const uint8_t MOVAVE_CNT = 3;      // Used to calculate a moving ave (needs to be > 0)
+static const uint16_t TOUCHSENSETHRESHOLD = 80;
 
 static long totalVal = 0L;
 static int totalnow = 0;
@@ -49,9 +50,9 @@ static bool MAcalc = false;
 
 static uint8_t LEDstate = 0;
 
-PIO pio = pio0;
-
-PicoCapSense CapSense(TRIGPIN, RECPIN, pio0);
+// This class will provide the PIO memory offset for the capsensing PIO (only need once)
+PicoPIO capPicoPIO(pio0);
+PicoCapSensing CapSensor(capPicoPIO, TRIGPIN, RECPIN);
 
 void setup() {
   // put your setup code here, to run once:
@@ -60,16 +61,18 @@ void setup() {
   Serial.begin(115200);
   while(!Serial) {;;}
 
+  // Define the pins for
+
 }
 
 
 void loop() {
-  totalnow = CapSense.getCapSenseSample(2000, 30);
+  totalnow = CapSensor.getCapSensingSample(2000, 30);
   if (totalnow) {
     if (totalprev) {
       if (cntr < MOVAVE_CNT) {
-        if (abs(totalnow - totalprev) < 150) {
-          if (totalnow > 150 || totalprev > 150) {
+        if (abs(totalnow - totalprev) < TOUCHSENSETHRESHOLD) {
+          if (totalnow > TOUCHSENSETHRESHOLD || totalprev > TOUCHSENSETHRESHOLD) {
             if (totalnow > totalprev) totalsmooth[cntr] = totalnow;
             else  totalsmooth[cntr] = totalprev;
           }
@@ -92,7 +95,7 @@ void loop() {
         Serial.print(totalVal);           // print smoothed output from capsensor output
         Serial.println(", 2000");           // sets the max value on y-axis (although it can shift)
 
-        if (totalVal > 150) {
+        if (totalVal > TOUCHSENSETHRESHOLD) {
           if (!LEDstate) {
             LEDstate = !LEDstate;
             digitalWrite(LEDPIN, LEDstate);

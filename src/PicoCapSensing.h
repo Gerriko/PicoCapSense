@@ -1,5 +1,5 @@
 /*
- Copyright (c) 2022 C Gerrish (BigG/Gerrikoio/Gerriko)
+ Copyright (c) 2022 C Gerrish (https://github.com/Gerriko)
  A capacitive Sensing library for RP2040 based boards (using the PIO processor).
  Capacitive Sensing is used to detect touch based on the electrical
  capacitance of the human body.
@@ -29,22 +29,40 @@
  DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef RP2040_PICOCAPSENSE_H
-#define RP2040_PICOCAPSENSE_H
+#ifndef RP2040_PICOCAPSENSING_H
+#define RP2040_PICOCAPSENSING_H
 
 #include <Arduino.h>
 #include "hardware/pio.h"
 #include "hardware/dma.h"
 #include "hardware/clocks.h"
 
-#include "PicoCapSense.pio.h"
+#include "PicoCapSensing.pio.h"
 
 // Default CPU speed (125MHz) for the Pico (used to calculate timeout in cycles)
 #if defined(ARDUINO_ARCH_RP2040) && !defined(F_CPU)
 #define F_CPU 125000000L
 #endif
 
-class PicoCapSense
+#define MAXNUMBERSAMPLES (50u)
+
+class PicoPIO {
+public:
+    /*************************************************************************
+     @brief Constructor
+     @param AllocatedPio: reference to chosen PIO
+    *************************************************************************/
+    PicoPIO(PIO AllocatedPio);
+
+    // @brief destructor
+    virtual ~PicoPIO();
+    PIO pio;
+    int offset;
+
+};
+
+
+class PicoCapSensing
 {
 public:
 
@@ -53,40 +71,49 @@ public:
      @param trigPin: trigger pin
      @param echoPin: echo pin
      @param pio: pio number 0=pio0, 1 = pio1
+     @param offset: memory offset for the stored pio instruction set
     *************************************************************************/
-    PicoCapSense(int trigPin, int readPin, PIO pio);
+    PicoCapSensing(PicoPIO &PicoPio, const int trigPin, const int recPin);
 
     // @brief destructor
-    virtual ~PicoCapSense();
+    virtual ~PicoCapSensing();
+
 
     /*************************************************************************
-     @brief Get the CapSense Cycle Counts (options sample or single)
-     @param timeout_millis: this is to a timeout value for the counter
-     @param samples: number of samples to read using PIO
-     @return: total count from sampling
+     @brief Check the class internal Error number
+     @return Error
     *************************************************************************/
-    long getCapSenseSample(uint32_t timeout_millis, uint8_t samples);
+    int checkForError(void);
+
+    /*************************************************************************
+     @brief Get the CapaciSense Cycle Counts (options sample or single)
+     @param timeout_millis: this is to a timeout value for the counter when
+                            waiting for the receive pin to change state
+     @param samples: number of samples to collate via PIO (arbitrary max is 50)
+     @return: total cycle count from sampling
+    *************************************************************************/
+    long getCapSensingSample(uint32_t timeout_millis, uint8_t samples);
 
 private:
 
     // @brief Get the CapSense Cycle Count from PIO
     // @param timeout_counts: this is to a timeout value based on CPU cycles
     // @return cycle count
-    long getCapSenseCounts(uint32_t timeout_counts);
+    long getCapSensingCounts(uint32_t timeout_counts);
 
-	  int _error;
+    PicoPIO &_PicoPio;
+
     uint32_t _total;
     uint32_t _sampleTot;
     uint32_t _minval;
     uint32_t _maxval;
 
-    int _trigPin;
-    int _recPin;
-
-    PIO _pio;         // selected pio
-    uint _offset;     // selected PIO memory offset
+	  int _error;
     int _sm;          // selected state machine
+    const int _trigPin;
+    const int _recPin;
+
 
 };
 
-#endif // RP2040_PICOCAPSENSE_H
+#endif // RP2040_PICOCAPSENSING_H
