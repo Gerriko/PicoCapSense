@@ -8,8 +8,11 @@
 This library is based on the measuring methods used in the Capacitive Sensing Library for 'duino / Wiring (sampling method differs)
 You can view this library here https://github.com/PaulStoffregen/CapacitiveSensor
 
-Note (8 July 2022). This library currently only works as a single instance (with one capacitive sensing touchpad)... it relates to the function pio_add_program(_pio, &capsense_program), which causes an error on 2nd instance. An update to fix this, allowing multiple instances (up to 3 SM's per PIO) to be used, is being tested.
+It now handles multiple capacitive sensing touchpads. It uses one PIO state machine (sm) per capacitive sensor - i.e. max is 3 per PIO.
 
+## Single Cap Sensing Example layout
+![Fritzing Single CapSensing Breadboard Image](/image/CapacitiveSensingExample.jpg)
 
-![Fritzing Breadboard Image](Pico_Capacitive_Sensor.jpg)
+## Multi Cap Sensing Example layout
+![Fritzing Multi CapSensing Breadboard Image](/image/multiCapSensingExample.jpg)
 
