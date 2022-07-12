@@ -1,0 +1,84 @@
+;
+; Copyright (c) 2022 C Gerrish (gerriko)
+;
+; SPDX-License-Identifier: BSD-3-Clause
+;
+
+.program capsense
+.side_set 1 opt
+
+; Initialise READ pin with TRIG pin for capsense timing detection
+
+begin1:
+    pull block              ; used as a manual trigger measurement and to receive the timeout value
+    set pindirs, 0  side 0  ; Read Pin set as input and set Trig Pin low
+    set pindirs, 1          ; Read Pin set as output
+    set pins, 0             ; Read Pin set low as an output
+                            ; delay for 10 us (the length of the trigger pulse)
+    set x 19                ; set x to 10011 (and clear the higher bits)
+    mov ISR x               ; copy x to ISR
+    in NULL 6               ; shift in 6 more 0 bits
+    mov x ISR               ; move the ISR to x (which now contains 10011000000)
+delay1:
+    jmp x-- delay1          ; count down to 0: a delay of (about) 10 us
+    set pindirs, 0  side 1  ; Read Pin set as input and set Trig Pin write high
+    wait 0 pin 0            ; wait for a zero, ie. for the read pin (i.e. the IN pin at index zero) to go low
+                            ; start a counting loop to measure the length of the pin state change
+    mov x OSR               ; start with the timeout value provided in the Output Shift Register (OSR)
+timer1:
+    jmp x-- test1           ; count down
+    jmp timerstop           ; timer has reached 0, stop count down
+test1:
+    jmp pin begin2          ; test if the read pin is 1, if so, stop counting down
+    jmp timer1              ; check again
+                            ; repeat the pin state changes
+begin2:
+    set pins, 1             ; set Read Pin high as input
+    set pindirs, 1          ; set Read Pin as output
+    set pins, 1             ; set Read Pin high as input
+    set pindirs, 0  side 0  ; set Read Pin as input and set Trig Pin write low
+timer2:
+    jmp x-- test2           ; keep counting down
+    jmp timerstop           ; timer has reached 0, stop count down
+test2:
+    jmp pin timer2          ; test if the read pin is 1, if so, continue counting down this time
+    mov ISR x               ; move the remaining value stored in scratch x to the ISR
+    push block              ; push the ISR into the Rx FIFO and wait for it to be read
+    jmp begin1              ; restart
+timerstop:
+    set x 0                 ; send a zero back as timer counter was zero
+    mov ISR x               ; move x to the ISR
+    push block              ; push the ISR into the Rx FIFO and wait for it to be read
+    jmp begin1              ; restart
+
+
+% c-sdk {
+// this is a raw helper function for use by the user which sets up the GPIO output, and configures the SM to output on a particular pin
+static inline void capsensing_program_init(PIO pio, uint sm, uint offset, uint trig_pin, uint read_pin) {
+  gpio_set_pulls(read_pin, false, false);         // make sure internal pull-up / pull-down not enabled
+
+  // Ensure that the state machine is not running before config
+  pio_sm_set_enabled(pio, sm, false);
+  // Clear all fifos
+  pio_sm_clear_fifos(pio, sm);
+  pio_sm_restart(pio, sm);
+
+  pio_gpio_init(pio, trig_pin);
+  pio_gpio_init(pio, read_pin);
+
+  pio_sm_set_consecutive_pindirs (pio, sm, trig_pin, 1, true);
+
+  pio_sm_config c = capsensing_program_get_default_config(offset);
+  // use in config for the read pin to allow direction and state to change
+  sm_config_set_in_pins(&c, read_pin);
+  // set the 'jmp' pin as the same as in pin as will be used to check pin state (if true checks)
+  sm_config_set_jmp_pin(&c, read_pin);
+  // use set config for the read pin to allow direction and state to change
+  sm_config_set_set_pins(&c, read_pin, 1);
+  // use out and sideset config for the trig pin to allow output state to change in parallel with read_pin
+  sm_config_set_sideset_pins(&c, trig_pin);
+  // Load our configuration, and jump to the start of the program
+  pio_sm_init(pio, sm, offset, &c);
+
+}
+%}
